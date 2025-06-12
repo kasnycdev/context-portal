@@ -65,11 +65,47 @@ Before you begin, ensure you have the following installed:
   - [Install uv](https://github.com/astral-sh/uv#installation)
   - If you choose not to use `uv`, you can use standard Python `venv` and `pip`, but `uv` is preferred for this project.
 
-### Installation via PyPI:
+### Uvx Installation via PyPI:
+
+
+**Using `uvx` (recommended):**
+
+uvx is a handy alias for `uv` a modern python alternative to pip & venv that calls a uv python tool without installing it first (conceptually similar to npx for node) and by far the easiest way to install & test
+stdio mcp servers.
+uvx is equivalent to `uv tool run` or  `uvx --from context-portal-mcp conport-mcp`
+simply add the definition to the mcpServers and it will self install:
+```
+{
+  "mcpServers": {
+    "conport": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "context_portal_mcp",
+        "conport-mcp",
+        "--mode",
+        "stdio",
+        "--workspace_id",
+        "${workspaceFolder}",
+        "--log-file",
+        "./logs/conport.log",
+        "--log-level",
+        "INFO"
+      ]
+    } 
+  }
+}
+```
+
+🤞🏻 conport has *many* large dependencies so it will take a few moments to download all the packages from pypi during the first initialization. Be patient!
+
+---
+### Manual Installation
 
 **Create and activate a virtual environment in the directory where you install your MCP servers:**
 
-**Using `uv` (recommended):**
+
+**Using `uv` directly:**
 
 ```bash
 uv venv
@@ -104,6 +140,7 @@ In your MCP server directory:
 ```bash
 python3 -m venv .venv  # Or 'python -m venv .venv'
 ```
+
 
 Activation commands are the same as for `uv` above.
 
@@ -628,9 +665,9 @@ For a more in-depth understanding of ConPort's design, architecture, and advance
 Please see our [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on how to contribute to the ConPort project.
 ## License
  This project is licensed under the [Apache-2.0 license](LICENSE).
-  
- 
+
+
 ## Database Migration & Update Guide
- 
+
 For detailed instructions on how to manage your `context.db` file, especially when updating ConPort across versions that include database schema changes, please refer to the dedicated [v0.2.4_UPDATE_GUIDE.md](v0.2.4_UPDATE_GUIDE.md). This guide provides steps for manual data migration (export/import) if needed, and troubleshooting tips.
 
