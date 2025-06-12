@@ -81,7 +81,7 @@ simply add the definition to the mcpServers and it will self install:
       "command": "uvx",
       "args": [
         "--from",
-        "context_portal_mcp",
+"context-portal-mcp",
         "conport-mcp",
         "--mode",
         "stdio",
