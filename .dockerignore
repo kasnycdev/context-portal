@@ -8,6 +8,12 @@ __pycache__/
 *.pyd
 .Python
 
+# Node.js artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Development files
 .git/
 .gitignore
@@ -29,3 +35,11 @@ docs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Logs not needed in container
+logs/
+*.log
+
+# Test files
+tests/
+.conftest.py

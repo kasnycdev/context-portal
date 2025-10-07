@@ -1,0 +1,21 @@
+# Example docker-compose override file for development/customization
+# Copy this to docker-compose.override.yml and modify as needed
+
+version: '3.8'
+
+services:
+  context-portal-mcp-sse:
+    # Override environment variables
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=DEBUG
+    # Additional port exposed for debugging
+    ports:
+      - "9229:9229"
+    # Override command for development with debugging
+    # command: ["node", "--inspect=0.0.0.0:9229", "server.js"]
+    # Mount source code for development
+    volumes:
+      - .:/app
+      - /app/node_modules  # Avoid overriding node_modules
+      - context-portal-data:/app/data

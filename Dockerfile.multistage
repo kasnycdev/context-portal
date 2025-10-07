@@ -1,0 +1,68 @@
+# Multi-stage Dockerfile for optimized production builds
+# This creates a smaller production image by separating build and runtime
+
+# Stage 1: Build stage with Python dependencies
+FROM python:3.13-slim-bookworm as python-builder
+
+WORKDIR /build
+
+# Install Python build dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy and install Python packages
+COPY requirements.txt pyproject.toml uv.lock ./
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+
+# Copy source code and build the package
+COPY src/ ./src/
+RUN pip wheel --no-cache-dir --wheel-dir /wheels .
+
+# Stage 2: Node.js build stage
+FROM node:20-slim as node-builder
+
+WORKDIR /build
+
+# Copy Node.js files
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Stage 3: Runtime stage
+FROM node:20-slim
+
+# Install Python runtime only
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3 /usr/bin/python
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy Node.js dependencies from build stage
+COPY --from=node-builder /build/node_modules ./node_modules
+
+# Copy Python wheels from build stage and install
+COPY --from=python-builder /wheels /wheels
+RUN pip3 install --no-cache-dir --break-system-packages /wheels/*.whl && rm -rf /wheels
+
+# Copy application code
+COPY server.js ./
+COPY src/ ./src/
+
+# Create directories and set permissions
+RUN mkdir -p /data/logs && chown -R appuser:appuser /app /data
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+
+# Run the application
+CMD ["node", "server.js"]
