@@ -11,6 +11,9 @@ const { SSEServerTransport } = require('@modelcontextprotocol/sdk/server/sse.js'
 const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 
+// Dynamic import for the request schemas from the SDK (ES module)
+let schemas = null;
+
 class ContextPortalMCPServer {
   constructor() {
     this.app = express();
@@ -25,7 +28,8 @@ class ContextPortalMCPServer {
   async initializePythonBackend() {
     console.log('🐍 Starting Python context-portal backend...');
 
-    const pythonProcess = spawn('conport-mcp', [], {
+    // Start the Python stdio bridge
+    const pythonProcess = spawn('python3', ['stdio_bridge.py'], {
       cwd: this.workspaceDir,
       env: {
         ...process.env,
@@ -48,14 +52,34 @@ class ContextPortalMCPServer {
       console.log(`Python process exited with code ${code} and signal ${signal}`);
     });
 
-    const transport = new StdioClientTransport({
-      command: 'conport-mcp',
-      args: [],
+    // Start the FastMCP HTTP server in the background
+    const pythonPort = process.env.PYTHON_MCP_PORT || 8001;
+    const fastMcpProcess = spawn('python3', ['-m', 'src.context_portal_mcp.main', '--mode', 'http', '--port', pythonPort.toString()], {
+      cwd: this.workspaceDir,
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1'
-      }
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true
     });
+
+    fastMcpProcess.stderr.on('data', (data) => {
+      console.error(`[FastMCP stderr]: ${data.toString()}`);
+    });
+
+    fastMcpProcess.on('error', (error) => {
+      console.error('Failed to start FastMCP process:', error);
+    });
+
+    fastMcpProcess.on('exit', (code, signal) => {
+      console.log(`FastMCP process exited with code ${code} and signal ${signal}`);
+    });
+
+    // Wait a bit for the server to start
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const transport = new StdioClientTransport(pythonProcess.stdin, pythonProcess.stdout);
 
     this.mcpClient = new Client(
       {
@@ -156,7 +180,7 @@ class ContextPortalMCPServer {
         }
       );
 
-      this.setupMCPProxyHandlers(server);
+      await this.setupMCPProxyHandlers(server);
 
       const transport = new SSEServerTransport('/sse', res);
       await server.connect(transport);
@@ -175,7 +199,8 @@ class ContextPortalMCPServer {
     });
   }
 
-  setupMCPProxyHandlers(server) {
+  async setupMCPProxyHandlers(server) {
+    // Set up request handlers for different MCP methods
     server.setRequestHandler('resources/list', async (request) => {
       try {
         const result = await this.mcpClient.request({ method: 'resources/list' }, request.params);
