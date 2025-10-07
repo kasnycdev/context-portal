@@ -28,8 +28,15 @@ class ContextPortalMCPServer {
   async initializePythonBackend() {
     console.log('🐍 Starting Python context-portal backend...');
 
-    // Start the Python stdio bridge
-    const pythonProcess = spawn('python3', ['stdio_bridge.py'], {
+    // Use python command (assumed to be available in activated venv)
+    const pythonPath = 'python';
+
+    // Start the Python FastMCP server in HTTP mode
+    const pythonPort = process.env.PYTHON_MCP_PORT || 8001;
+    const pythonCommand = pythonPath;
+    const pythonArgs = ['-m', 'src.context_portal_mcp.main', '--mode', 'http', '--port', pythonPort.toString(), '--workspace_id', this.workspaceDir];
+
+    const pythonProcess = spawn(pythonCommand, pythonArgs, {
       cwd: this.workspaceDir,
       env: {
         ...process.env,
@@ -52,34 +59,12 @@ class ContextPortalMCPServer {
       console.log(`Python process exited with code ${code} and signal ${signal}`);
     });
 
-    // Start the FastMCP HTTP server in the background
-    const pythonPort = process.env.PYTHON_MCP_PORT || 8001;
-    const fastMcpProcess = spawn('python3', ['-m', 'src.context_portal_mcp.main', '--mode', 'http', '--port', pythonPort.toString()], {
-      cwd: this.workspaceDir,
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1'
-      },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      detached: true
-    });
-
-    fastMcpProcess.stderr.on('data', (data) => {
-      console.error(`[FastMCP stderr]: ${data.toString()}`);
-    });
-
-    fastMcpProcess.on('error', (error) => {
-      console.error('Failed to start FastMCP process:', error);
-    });
-
-    fastMcpProcess.on('exit', (code, signal) => {
-      console.log(`FastMCP process exited with code ${code} and signal ${signal}`);
-    });
-
     // Wait a bit for the server to start
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    const transport = new StdioClientTransport(pythonProcess.stdin, pythonProcess.stdout);
+    // Connect to the Python backend via HTTP
+    const { HTTPClientTransport } = await import('./http-transport.js');
+    const transport = new HTTPClientTransport(`http://localhost:${pythonPort}/mcp`);
 
     this.mcpClient = new Client(
       {

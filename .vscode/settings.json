@@ -1,0 +1,7 @@
+{
+    "python.defaultInterpreterPath": ".venv/bin/python",
+    "python.pipenvPath": ".venv/bin/pipenv",
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.terminal.executeInFileDir": true,
+    "python.pixiToolPath": ".venv/bin/pixi"
+}
